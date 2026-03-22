@@ -1,0 +1,107 @@
+pragma language_version >= 0.16 && <= 0.21;
+
+// SharedScience.me — Disclosure Protocol Contract
+// Manages staged, consent-based progressive revelation of identity
+// and capability details between collaborating parties.
+// Neither party reveals anything until BOTH consent at each stage.
+
+// Stages of progressive disclosure
+enum DisclosureStage {
+  Anonymous,           // Both parties anonymous
+  DomainRevealed,      // Scientific domain expertise shared
+  CredentialsShared,   // Institutional credentials proven (still no identity)
+  IdentityRevealed,    // Real organizational identity disclosed
+  FullDisclosure       // Complete details shared under agreement
+}
+
+// A disclosure session between two parties
+struct DisclosureSession {
+  sessionId: Field;
+  inquiryId: Field;
+  partyADIDHash: Bytes<32>;
+  partyBDIDHash: Bytes<32>;
+  currentStage: Field;
+  partyAConsent: Boolean;
+  partyBConsent: Boolean;
+  createdAt: Field;
+}
+
+ledger {
+  sessions: Map<Field, DisclosureSession>;
+  nextSessionId: Counter;
+}
+
+// Initiate a disclosure session from a mutual-interest inquiry
+export circuit initiateDisclosure(
+  inquiryId: Field,
+  partyADIDHash: Bytes<32>,
+  partyBDIDHash: Bytes<32>
+): Field {
+  const sessionId = nextSessionId.value;
+  nextSessionId.increment(1);
+
+  const session = DisclosureSession {
+    sessionId: sessionId,
+    inquiryId: inquiryId,
+    partyADIDHash: partyADIDHash,
+    partyBDIDHash: partyBDIDHash,
+    currentStage: 0, // Anonymous
+    partyAConsent: false,
+    partyBConsent: false,
+    createdAt: sessionId // placeholder
+  };
+
+  sessions.insert(sessionId, session);
+  return sessionId;
+}
+
+// A party consents to advance to the next disclosure stage
+export circuit consentToAdvance(
+  sessionId: Field,
+  callerDIDHash: Bytes<32>
+): [] {
+  const session = sessions.lookup(sessionId);
+
+  // Determine which party is consenting
+  const isPartyA = callerDIDHash == session.partyADIDHash;
+  const isPartyB = callerDIDHash == session.partyBDIDHash;
+  assert(isPartyA || isPartyB, "Caller not party to this session");
+
+  // Record consent
+  const updatedSession = DisclosureSession {
+    sessionId: session.sessionId,
+    inquiryId: session.inquiryId,
+    partyADIDHash: session.partyADIDHash,
+    partyBDIDHash: session.partyBDIDHash,
+    currentStage: session.currentStage,
+    partyAConsent: isPartyA || session.partyAConsent,
+    partyBConsent: isPartyB || session.partyBConsent,
+    createdAt: session.createdAt
+  };
+
+  sessions.insert(sessionId, updatedSession);
+}
+
+// Advance the disclosure stage when both parties have consented
+export circuit advanceStage(sessionId: Field): [] {
+  const session = sessions.lookup(sessionId);
+
+  // Both parties must have consented
+  assert(session.partyAConsent == true, "Party A has not consented");
+  assert(session.partyBConsent == true, "Party B has not consented");
+  assert(session.currentStage < 4, "Already at full disclosure");
+
+  // Advance stage and reset consent flags
+  const updatedSession = DisclosureSession {
+    sessionId: session.sessionId,
+    inquiryId: session.inquiryId,
+    partyADIDHash: session.partyADIDHash,
+    partyBDIDHash: session.partyBDIDHash,
+    currentStage: session.currentStage + 1,
+    partyAConsent: false,
+    partyBConsent: false,
+    createdAt: session.createdAt
+  };
+
+  sessions.insert(sessionId, updatedSession);
+}

@@ -1,0 +1,106 @@
+pragma language_version >= 0.16 && <= 0.21;
+
+// SharedScience.me — Collaboration Agreement Contract
+// On-chain collaboration terms, IP protections, and milestone tracking.
+// Provides an immutable, privacy-preserving record of collaboration agreements
+// without exposing the actual scientific content or methods.
+
+// Agreement status
+enum AgreementStatus {
+  Draft,
+  Proposed,
+  Active,
+  Completed,
+  Terminated
+}
+
+// A collaboration agreement between two or more parties
+struct CollaborationAgreement {
+  agreementId: Field;
+  disclosureSessionId: Field;
+  // Hash of the full agreement terms (stored off-chain, verified on-chain)
+  termsHash: Bytes<32>;
+  // Hash of IP allocation terms
+  ipTermsHash: Bytes<32>;
+  // Parties to the agreement (DID hashes)
+  partyADIDHash: Bytes<32>;
+  partyBDIDHash: Bytes<32>;
+  // Agreement status
+  status: Field;
+  // Number of milestones completed
+  milestonesCompleted: Field;
+  // Total milestones defined
+  totalMilestones: Field;
+  // Timestamp of agreement creation
+  createdAt: Field;
+}
+
+ledger {
+  agreements: Map<Field, CollaborationAgreement>;
+  nextAgreementId: Counter;
+  // Track agreements per party (for reputation)
+  partyAgreements: Map<Bytes<32>, Counter>;
+}
+
+// Create a new collaboration agreement
+export circuit createAgreement(
+  disclosureSessionId: Field,
+  termsHash: Bytes<32>,
+  ipTermsHash: Bytes<32>,
+  partyADIDHash: Bytes<32>,
+  partyBDIDHash: Bytes<32>,
+  totalMilestones: Field
+): Field {
+  const agreementId = nextAgreementId.value;
+  nextAgreementId.increment(1);
+
+  const agreement = CollaborationAgreement {
+    agreementId: agreementId,
+    disclosureSessionId: disclosureSessionId,
+    termsHash: termsHash,
+    ipTermsHash: ipTermsHash,
+    partyADIDHash: partyADIDHash,
+    partyBDIDHash: partyBDIDHash,
+    status: 1, // Proposed
+    milestonesCompleted: 0,
+    totalMilestones: totalMilestones,
+    createdAt: agreementId // placeholder
+  };
+
+  agreements.insert(agreementId, agreement);
+  partyAgreements[partyADIDHash].increment(1);
+  partyAgreements[partyBDIDHash].increment(1);
+
+  return agreementId;
+}
+
+// Record a milestone completion
+export circuit completeMilestone(
+  agreementId: Field,
+  callerDIDHash: Bytes<32>
+): [] {
+  const agreement = agreements.lookup(agreementId);
+
+  // Only parties can record milestones
+  assert(
+    callerDIDHash == agreement.partyADIDHash || callerDIDHash == agreement.partyBDIDHash,
+    "Caller not party to agreement"
+  );
+  assert(agreement.status == 2, "Agreement not active");
+  assert(agreement.milestonesCompleted < agreement.totalMilestones, "All milestones complete");
+
+  const updated = CollaborationAgreement {
+    agreementId: agreement.agreementId,
+    disclosureSessionId: agreement.disclosureSessionId,
+    termsHash: agreement.termsHash,
+    ipTermsHash: agreement.ipTermsHash,
+    partyADIDHash: agreement.partyADIDHash,
+    partyBDIDHash: agreement.partyBDIDHash,
+    status: agreement.status,
+    milestonesCompleted: agreement.milestonesCompleted + 1,
+    totalMilestones: agreement.totalMilestones,
+    createdAt: agreement.createdAt
+  };
+
+  agreements.insert(agreementId, updated);
+}

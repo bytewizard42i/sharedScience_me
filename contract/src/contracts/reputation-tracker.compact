@@ -1,0 +1,73 @@
+pragma language_version >= 0.16 && <= 0.21;
+
+// SharedScience.me — Reputation Tracker Contract
+// Anonymous reputation scores based on successful collaborations.
+// Organizations build reputation through completed milestones and
+// successful collaborations without linking scores to real-world identity.
+
+// Reputation record for an anonymous organization
+struct ReputationRecord {
+  didHash: Bytes<32>;
+  totalCollaborations: Field;
+  successfulCollaborations: Field;
+  totalMilestonesCompleted: Field;
+  // Weighted reputation score (0-1000)
+  reputationScore: Field;
+  lastUpdatedAt: Field;
+}
+
+ledger {
+  reputations: Map<Bytes<32>, ReputationRecord>;
+}
+
+// Initialize reputation for a new organization
+export circuit initializeReputation(didHash: Bytes<32>): [] {
+  const record = ReputationRecord {
+    didHash: didHash,
+    totalCollaborations: 0,
+    successfulCollaborations: 0,
+    totalMilestonesCompleted: 0,
+    reputationScore: 500, // Start at neutral (midpoint)
+    lastUpdatedAt: 0
+  };
+
+  reputations.insert(didHash, record);
+}
+
+// Record a successful collaboration completion
+export circuit recordSuccessfulCollaboration(
+  didHash: Bytes<32>,
+  milestonesCompleted: Field
+): [] {
+  const record = reputations.lookup(didHash);
+
+  // Calculate new reputation score (simplified — weighted average)
+  // In production, this would be a more sophisticated algorithm
+  const newTotalCollabs = record.totalCollaborations + 1;
+  const newSuccessful = record.successfulCollaborations + 1;
+  const newMilestones = record.totalMilestonesCompleted + milestonesCompleted;
+
+  // Simple reputation: (successful / total) * 1000, boosted by milestone count
+  // This is a placeholder — real scoring would be more nuanced
+  const baseScore = (newSuccessful * 1000) / newTotalCollabs;
+
+  const updated = ReputationRecord {
+    didHash: didHash,
+    totalCollaborations: newTotalCollabs,
+    successfulCollaborations: newSuccessful,
+    totalMilestonesCompleted: newMilestones,
+    reputationScore: baseScore,
+    lastUpdatedAt: 0 // placeholder — use block height
+  };
+
+  reputations.insert(didHash, updated);
+}
+
+// Prove reputation is above a threshold (without revealing exact score)
+export circuit proveReputationAbove(
+  didHash: Bytes<32>,
+  threshold: Field
+): Boolean {
+  const record = reputations.lookup(didHash);
+  return record.reputationScore >= threshold;
+}

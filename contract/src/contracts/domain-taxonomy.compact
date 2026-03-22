@@ -1,0 +1,62 @@
+pragma language_version >= 0.16 && <= 0.21;
+
+// SharedScience.me — Domain Taxonomy Contract
+// Manages the hierarchical scientific domain classification system.
+// Allows capability proofs to be categorized and searched by domain.
+
+// A node in the scientific domain taxonomy tree
+struct TaxonomyNode {
+  // Unique identifier for this node
+  nodeId: Field;
+  // Parent node ID (0 = root)
+  parentId: Field;
+  // Hash of the domain name (e.g., hash("Cryogenics"))
+  nameHash: Bytes<32>;
+  // Depth in the taxonomy tree (0 = root, 1 = top-level, etc.)
+  depth: Field;
+  // Whether this node is active
+  isActive: Boolean;
+}
+
+ledger {
+  // All taxonomy nodes
+  nodes: Map<Field, TaxonomyNode>;
+  // Counter for generating unique node IDs
+  nextNodeId: Counter;
+  // Children index: parent ID -> set of child IDs
+  children: Map<Field, Set<Field>>;
+  // Admin DID hash (controls taxonomy modifications)
+  adminDIDHash: Bytes<32>;
+}
+
+// Add a new domain to the taxonomy (admin only)
+export circuit addDomain(
+  callerDIDHash: Bytes<32>,
+  parentId: Field,
+  nameHash: Bytes<32>,
+  depth: Field
+): Field {
+  // Only admin can modify taxonomy
+  assert(callerDIDHash == adminDIDHash, "Only admin can add domains");
+
+  const nodeId = nextNodeId.value;
+  nextNodeId.increment(1);
+
+  const node = TaxonomyNode {
+    nodeId: nodeId,
+    parentId: parentId,
+    nameHash: nameHash,
+    depth: depth,
+    isActive: true
+  };
+
+  nodes.insert(nodeId, node);
+
+  return nodeId;
+}
+
+// Verify a domain node exists and is active
+export circuit verifyDomain(nodeId: Field): Boolean {
+  const node = nodes.lookup(nodeId);
+  return node.isActive;
+}

@@ -1,0 +1,123 @@
+pragma language_version >= 0.16 && <= 0.21;
+
+// SharedScience.me — Inquiry Channel Contract
+// Privacy-preserving pub/sub messaging between anonymous parties.
+// Allows searchers to reach out to capability publishers without
+// either party revealing their identity until mutual consent.
+
+// Status of an inquiry conversation
+enum InquiryStatus {
+  Pending,
+  Responded,
+  MutualInterest,
+  DisclosureStarted,
+  Declined,
+  Expired
+}
+
+// An anonymous inquiry from a searcher to a publisher
+struct Inquiry {
+  // Unique inquiry ID
+  inquiryId: Field;
+  // Hash of the capability proof being inquired about
+  capabilityProofId: Field;
+  // Hash of the searcher's DID (private until disclosure)
+  searcherDIDHash: Bytes<32>;
+  // Hash of the publisher's DID (from capability proof)
+  publisherDIDHash: Bytes<32>;
+  // Hash of the inquiry message (actual message stored off-chain)
+  messageHash: Bytes<32>;
+  // Current status of the inquiry
+  status: Field;
+  // Timestamp of creation
+  createdAt: Field;
+}
+
+ledger {
+  // All inquiries
+  inquiries: Map<Field, Inquiry>;
+  // Counter for unique inquiry IDs
+  nextInquiryId: Counter;
+  // Index: publisher DID hash -> set of inquiry IDs (inbox)
+  publisherInbox: Map<Bytes<32>, Set<Field>>;
+  // Index: searcher DID hash -> set of inquiry IDs (sent)
+  searcherOutbox: Map<Bytes<32>, Set<Field>>;
+}
+
+// Send an anonymous inquiry about a capability
+export circuit sendInquiry(
+  searcherDIDHash: Bytes<32>,
+  capabilityProofId: Field,
+  publisherDIDHash: Bytes<32>,
+  messageHash: Bytes<32>
+): Field {
+  const inquiryId = nextInquiryId.value;
+  nextInquiryId.increment(1);
+
+  const inquiry = Inquiry {
+    inquiryId: inquiryId,
+    capabilityProofId: capabilityProofId,
+    searcherDIDHash: searcherDIDHash,
+    publisherDIDHash: publisherDIDHash,
+    messageHash: messageHash,
+    status: 0, // Pending
+    createdAt: inquiryId // placeholder — use block height in production
+  };
+
+  inquiries.insert(inquiryId, inquiry);
+
+  return inquiryId;
+}
+
+// Publisher responds to an inquiry
+export circuit respondToInquiry(
+  inquiryId: Field,
+  callerDIDHash: Bytes<32>,
+  responseHash: Bytes<32>
+): [] {
+  const inquiry = inquiries.lookup(inquiryId);
+
+  // Only the publisher can respond
+  assert(inquiry.publisherDIDHash == callerDIDHash, "Only publisher can respond");
+  assert(inquiry.status == 0, "Inquiry not in pending state");
+
+  // Update status to Responded
+  const updatedInquiry = Inquiry {
+    inquiryId: inquiry.inquiryId,
+    capabilityProofId: inquiry.capabilityProofId,
+    searcherDIDHash: inquiry.searcherDIDHash,
+    publisherDIDHash: inquiry.publisherDIDHash,
+    messageHash: responseHash,
+    status: 1, // Responded
+    createdAt: inquiry.createdAt
+  };
+
+  inquiries.insert(inquiryId, updatedInquiry);
+}
+
+// Both parties signal mutual interest — triggers disclosure protocol
+export circuit signalMutualInterest(
+  inquiryId: Field,
+  callerDIDHash: Bytes<32>
+): [] {
+  const inquiry = inquiries.lookup(inquiryId);
+
+  // Either party can signal — but status must be Responded
+  assert(inquiry.status == 1, "Inquiry must be in responded state");
+  assert(
+    callerDIDHash == inquiry.searcherDIDHash || callerDIDHash == inquiry.publisherDIDHash,
+    "Only parties to the inquiry can signal interest"
+  );
+
+  const updatedInquiry = Inquiry {
+    inquiryId: inquiry.inquiryId,
+    capabilityProofId: inquiry.capabilityProofId,
+    searcherDIDHash: inquiry.searcherDIDHash,
+    publisherDIDHash: inquiry.publisherDIDHash,
+    messageHash: inquiry.messageHash,
+    status: 2, // MutualInterest
+    createdAt: inquiry.createdAt
+  };
+
+  inquiries.insert(inquiryId, updatedInquiry);
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@sharedscience/contract",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "compact:capability-registry": "compact compile +0.29.0 src/contracts/capability-registry.compact src/managed/capability-registry",
+    "compact:domain-taxonomy": "compact compile +0.29.0 src/contracts/domain-taxonomy.compact src/managed/domain-taxonomy",
+    "compact:inquiry-channel": "compact compile +0.29.0 src/contracts/inquiry-channel.compact src/managed/inquiry-channel",
+    "compact:disclosure-protocol": "compact compile +0.29.0 src/contracts/disclosure-protocol.compact src/managed/disclosure-protocol",
+    "compact:collaboration-agreement": "compact compile +0.29.0 src/contracts/collaboration-agreement.compact src/managed/collaboration-agreement",
+    "compact:reputation-tracker": "compact compile +0.29.0 src/contracts/reputation-tracker.compact src/managed/reputation-tracker",
+    "compact:all": "npm run compact:capability-registry && npm run compact:domain-taxonomy && npm run compact:inquiry-channel && npm run compact:disclosure-protocol && npm run compact:collaboration-agreement && npm run compact:reputation-tracker",
+    "test": "vitest run",
+    "test:compile": "npm run compact:all && vitest run",
+    "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

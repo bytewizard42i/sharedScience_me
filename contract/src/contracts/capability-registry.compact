@@ -1,0 +1,123 @@
+pragma language_version >= 0.16 && <= 0.21;
+
+// SharedScience.me — Capability Registry Contract
+// Stores ZK proofs of scientific capabilities in a searchable on-chain registry.
+// Organizations can publish verified claims about their capabilities without
+// revealing underlying methods, data, or proprietary details.
+
+// Capability levels representing maturity of a scientific capability
+enum CapabilityLevel {
+  Theoretical,
+  Experimental,
+  Validated,
+  ProductionReady
+}
+
+// Scale at which the capability operates
+enum ScaleIndicator {
+  Nano,
+  Micro,
+  Macro,
+  Industrial
+}
+
+// Verification status of the capability claim
+enum VerificationStatus {
+  SelfAttested,
+  PeerReviewed,
+  ThirdPartyVerified
+}
+
+// A published scientific capability proof
+struct CapabilityProof {
+  // Hash of the publishing organization's DID (identity stays private)
+  publisherDIDHash: Bytes<32>;
+  // Domain taxonomy node ID (references domain-taxonomy contract)
+  domainNodeId: Field;
+  // Capability maturity level
+  capabilityLevel: Field;
+  // Scale of the capability
+  scaleIndicator: Field;
+  // Verification status
+  verificationStatus: Field;
+  // Timestamp of publication (block height or epoch)
+  publishedAt: Field;
+  // Hash of additional metadata (stored off-chain, verified on-chain)
+  metadataHash: Bytes<32>;
+  // Whether this capability is still active
+  isActive: Boolean;
+}
+
+ledger {
+  // Registry of capability proofs indexed by a unique proof ID
+  capabilityProofs: Map<Field, CapabilityProof>;
+  // Counter for generating unique proof IDs
+  nextProofId: Counter;
+  // Index: domain node ID -> list of proof IDs (for search)
+  domainIndex: Map<Field, Set<Field>>;
+  // Track which DID hashes have published (for rate limiting / reputation)
+  publisherActivity: Map<Bytes<32>, Counter>;
+}
+
+// Publish a new capability proof to the registry
+export circuit publishCapability(
+  publisherDIDHash: Bytes<32>,
+  domainNodeId: Field,
+  capabilityLevel: Field,
+  scaleIndicator: Field,
+  verificationStatus: Field,
+  metadataHash: Bytes<32>
+): Field {
+  // Get and increment the proof ID counter
+  const proofId = nextProofId.value;
+  nextProofId.increment(1);
+
+  // TODO: Validate domainNodeId exists in domain-taxonomy contract
+  // TODO: Validate capability level, scale, and verification status are valid enum values
+
+  // Create the capability proof
+  const proof = CapabilityProof {
+    publisherDIDHash: publisherDIDHash,
+    domainNodeId: domainNodeId,
+    capabilityLevel: capabilityLevel,
+    scaleIndicator: scaleIndicator,
+    verificationStatus: verificationStatus,
+    publishedAt: proofId, // placeholder — use block height in production
+    metadataHash: metadataHash,
+    isActive: true
+  };
+
+  // Store the proof
+  capabilityProofs.insert(proofId, proof);
+
+  // Track publisher activity
+  publisherActivity[publisherDIDHash].increment(1);
+
+  return proofId;
+}
+
+// Deactivate a capability proof (only publisher can do this)
+export circuit deactivateCapability(
+  proofId: Field,
+  publisherDIDHash: Bytes<32>
+): [] {
+  const proof = capabilityProofs.lookup(proofId);
+
+  // Verify the caller is the original publisher
+  assert(proof.publisherDIDHash == publisherDIDHash, "Only publisher can deactivate");
+  assert(proof.isActive == true, "Proof already inactive");
+
+  // Update the proof to inactive
+  const updatedProof = CapabilityProof {
+    publisherDIDHash: proof.publisherDIDHash,
+    domainNodeId: proof.domainNodeId,
+    capabilityLevel: proof.capabilityLevel,
+    scaleIndicator: proof.scaleIndicator,
+    verificationStatus: proof.verificationStatus,
+    publishedAt: proof.publishedAt,
+    metadataHash: proof.metadataHash,
+    isActive: false
+  };
+
+  capabilityProofs.insert(proofId, updatedProof);
+}
