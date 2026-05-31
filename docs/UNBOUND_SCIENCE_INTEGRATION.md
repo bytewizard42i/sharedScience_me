@@ -36,6 +36,8 @@ Their mission page focuses on ending "artificial scarcity" across four sectors: 
 
 ## The Cross-Repo HIPAA Integration
 
+![Veterinary & Animal Health on Midnight: the animal-health data providers (EquinePro, PetProData) that SharedScience coordinates for One Health research](../assets/veterinary-animal-health-on-midnight.png)
+
 All three health data repos already have the building blocks:
 
 - **safeHealthData** — KYCz binding stack for HIPAA-grade patient identity, folder-based records
