@@ -1,4 +1,4 @@
-pragma language_version >= 0.16 && <= 0.21;
+pragma language_version >= 0.16 && <= 0.23;
 
 // SharedScience.me — Inquiry Channel Contract
 // Privacy-preserving pub/sub messaging between anonymous parties.

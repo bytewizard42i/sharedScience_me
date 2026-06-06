@@ -1,4 +1,4 @@
-pragma language_version >= 0.16 && <= 0.21;
+pragma language_version >= 0.16 && <= 0.23;
 
 // SharedScience.me — Domain Taxonomy Contract
 // Manages the hierarchical scientific domain classification system.
