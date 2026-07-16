@@ -281,6 +281,25 @@ SharedScience.me follows the **demoLand/realDeal** architecture pattern used acr
 
 ---
 
+## turbovec Integration: Private Capability Matching
+
+[**turbovec**](https://github.com/RyanCodrai/turbovec) is a Rust vector search engine that compresses embeddings 8x, runs entirely locally, and supports allowlist-filtered search. It is a natural fit for SharedScience.me's capability discovery layer.
+
+### How turbovec serves SharedScience.me
+
+The core mechanic of SharedScience.me is matching organizations by scientific capability without revealing methods. turbovec powers this matching privately:
+
+- **Embed capability proofs**: Each organization's ZK capability proof includes a domain classification and capability description. These descriptions are embedded as vectors and indexed by turbovec.
+- **Search locally, never leak**: An organization searching for collaborators embeds their needs as a query vector and searches the turbovec index. No data leaves their machine. No cloud service sees what they are looking for.
+- **Allowlist by domain**: The allowlist feature restricts search results to specific scientific domains or verification levels. For example, only search within "peer-reviewed" capabilities, or only within a specific branch of the taxonomy.
+- **Online ingest**: New capability proofs are published and instantly searchable. No index rebuild when organizations join or publish new capabilities.
+
+### Why local matters here
+
+SharedScience.me's entire value proposition is that organizations can discover each other without revealing what they know. If the search step used a cloud vector database, the cloud provider would see both what each organization is looking for and what each organization claims to have. That metadata alone could reveal competitive strategy. turbovec keeps the search entirely on the organization's own infrastructure, so the only thing that leaves is the anonymous inquiry through the pub/sub channel.
+
+---
+
 ## Roadmap
 
 ### Phase 1: Foundation (Current)
