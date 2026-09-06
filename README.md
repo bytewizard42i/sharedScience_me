@@ -346,3 +346,10 @@ See [LICENSE](LICENSE) for details.
 ---
 
 *"The greatest breakthroughs happen at the intersection of disciplines. SharedScience.me removes the fear of sharing what you know — so those intersections can finally be discovered."*
+
+
+## Shared sign-in options
+
+See [the shared sign-in module pointer](SIGN_IN_SELECTIONS.md) for reusable choice
+configuration and this repository's integration boundaries. This documentation
+pointer does not activate authentication.
